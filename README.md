@@ -62,7 +62,7 @@
 スクリプトはコマンドラインから実行します。仮想環境が有効化されていることを確認してください。
 
 ```bash
-python main.py <csv_filepath_input> "<speaker_map_arg>" [オプション]
+uv run main.py <csv_filepath_input> "<speaker_map_arg>" [オプション]
 ```
 
 ### 引数
@@ -100,13 +100,13 @@ python main.py <csv_filepath_input> "<speaker_map_arg>" [オプション]
 
 ```bash
 # test.csv を読み込み、話者マッピングを指定して output.wav に出力
-python main.py test.csv "SPEAKER_00:3 SPEAKER_01:8" --output_wav_path output.wav
+uv run main.py test.csv "SPEAKER_00:3 SPEAKER_01:8" --output_wav_path output.wav
 
 # VOICEVOX Engineが別のURLで動作している場合
-python main.py dialogue.csv "キャラA:1 キャラB:14" --voicevox_url [http://192.168.1.100:50021](http://192.168.1.100:50021)
+uv run main.py dialogue.csv "キャラA:1 キャラB:14" --voicevox_url [http://192.168.1.100:50021](http://192.168.1.100:50021)
 
 # 無音時間を調整する場合
-python main.py script.csv "ずんだもん:3 四国めたん:2" --silence_duration_same_speaker 0.1 --silence_duration_diff_speaker 0.5
+uv run main.py script.csv "ずんだもん:3 四国めたん:2" --silence_duration_same_speaker 0.1 --silence_duration_diff_speaker 0.5
 ```
 
 ## 入力CSVフォーマット
