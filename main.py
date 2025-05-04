@@ -25,17 +25,19 @@ WaveParams = Tuple[int, int, int] # nchannels, sampwidth, framerate
 SpeakerMap = Dict[str, SpeakerId]
 
 # --- Constants ---
-DEFAULT_VOICEVOX_URL = 'http://localhost:50021'
+# DEFAULT_VOICEVOX_URL を DEFAULT_ENGINE_URL に変更
+DEFAULT_ENGINE_URL = 'http://localhost:50021'
 DEFAULT_TIMEOUT_QUERY = 10
 DEFAULT_TIMEOUT_SYNTHESIS = 60
 DEFAULT_SILENCE_SAME_SPEAKER = 0.125
 DEFAULT_SILENCE_DIFF_SPEAKER = 0.25
 
-def synthesize_voice_bytes(text: str, speaker_id: SpeakerId, voicevox_url: str, timeout_query: int, timeout_synthesis: int) -> Optional[AudioBytes]:
+# 引数名を voicevox_url から engine_url に変更
+def synthesize_voice_bytes(text: str, speaker_id: SpeakerId, engine_url: str, timeout_query: int, timeout_synthesis: int) -> Optional[AudioBytes]:
     """
     指定されたテキストと話者IDで音声を合成し、音声データ (bytes) を返す。
     失敗した場合は None を返す。
-    VOICEVOX URLとタイムアウト時間を引数で受け取る。
+    エンジンURLとタイムアウト時間を引数で受け取る。
     """
     # speaker_idが整数であることを確認 (型ヒントがあるので厳密には不要だが、念のため)
     if not isinstance(speaker_id, int):
@@ -45,10 +47,12 @@ def synthesize_voice_bytes(text: str, speaker_id: SpeakerId, voicevox_url: str, 
     logging.debug(f"Attempting audio synthesis for speaker {speaker_id}, text: '{text[:30]}...'")
     try:
         # 1. audio_query: 音声合成用のクエリを作成
-        logging.debug(f"Sending audio_query request: speaker={speaker_id}, text='{text[:30]}...' to {voicevox_url}")
+        # ログの engine_url を使用
+        logging.debug(f"Sending audio_query request: speaker={speaker_id}, text='{text[:30]}...' to {engine_url}")
         query_payload = {'text': text, 'speaker': speaker_id}
         query_response = requests.post(
-            f'{voicevox_url}/audio_query',
+            # engine_url を使用
+            f'{engine_url}/audio_query',
             params=query_payload,
             timeout=timeout_query
         )
@@ -57,10 +61,12 @@ def synthesize_voice_bytes(text: str, speaker_id: SpeakerId, voicevox_url: str, 
         logging.debug(f"audio_query request successful")
 
         # 2. synthesis: クエリに基づいて音声データを生成
-        logging.debug(f"Sending synthesis request: speaker={speaker_id} to {voicevox_url}")
+        # ログの engine_url を使用
+        logging.debug(f"Sending synthesis request: speaker={speaker_id} to {engine_url}")
         synthesis_payload = {'speaker': speaker_id}
         synthesis_response = requests.post(
-            f'{voicevox_url}/synthesis',
+            # engine_url を使用
+            f'{engine_url}/synthesis',
             params=synthesis_payload,
             json=audio_query,
             timeout=timeout_synthesis
@@ -139,10 +145,11 @@ def read_csv_data(filepath: pathlib.Path) -> Optional[List[Dict[str, str]]]:
     logging.info(f"Successfully read {len(data)} rows from CSV file '{filepath}'.")
     return data
 
+# マップ名の Engine ID を反映（例: VOICEVOX_ID -> ENGINE_ID）
 def parse_speaker_map(map_string: str) -> Optional[SpeakerMap]:
     """
-    "CSV話者名:VOICEVOX_ID CSV話者名:VOICEVOX_ID ..." 形式の文字列を解析し、
-    {CSV話者名: VOICEVOX_ID (int)} の辞書を返す。
+    "CSV話者名:ENGINE_ID CSV話者名:ENGINE_ID ..." 形式の文字列を解析し、
+    {CSV話者名: ENGINE_ID (int)} の辞書を返す。
     形式が不正な場合やIDが整数でない場合は None を返す。
     """
     speaker_map: SpeakerMap = {}
@@ -156,26 +163,31 @@ def parse_speaker_map(map_string: str) -> Optional[SpeakerMap]:
     for i, pair in enumerate(pairs):
         parts = pair.split(':')
         if len(parts) != 2:
-            logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. Expected 'CSV_SpeakerName:VoicevoxID'.")
+            # ヘルプメッセージの EngineID を反映
+            logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. Expected 'CSV_SpeakerName:EngineID'.")
             return None
         csv_speaker_name = parts[0].strip()
-        voicevox_id_str = parts[1].strip()
+        # voicevox_id_str -> engine_id_str に変更
+        engine_id_str = parts[1].strip()
 
         if not csv_speaker_name:
             logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. CSV Speaker Name cannot be empty.")
             return None
 
         try:
-            voicevox_id = int(voicevox_id_str)
-            if voicevox_id < 0:
-                 logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. VOICEVOX ID must be a non-negative integer, got '{voicevox_id_str}'.")
+            # voicevox_id -> engine_id に変更
+            engine_id = int(engine_id_str)
+            if engine_id < 0:
+                 # エラーメッセージの Engine ID を反映
+                 logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. Engine ID must be a non-negative integer, got '{engine_id_str}'.")
                  return None
             if csv_speaker_name in speaker_map:
-                logging.warning(f"Duplicate CSV speaker name '{csv_speaker_name}' found in speaker map. Using the last definition (ID: {voicevox_id}).")
-            speaker_map[csv_speaker_name] = voicevox_id
-            logging.debug(f"  Parsed mapping: '{csv_speaker_name}' -> {voicevox_id}")
+                logging.warning(f"Duplicate CSV speaker name '{csv_speaker_name}' found in speaker map. Using the last definition (ID: {engine_id}).")
+            speaker_map[csv_speaker_name] = engine_id
+            logging.debug(f"  Parsed mapping: '{csv_speaker_name}' -> {engine_id}")
         except ValueError:
-            logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. VOICEVOX ID '{voicevox_id_str}' is not a valid integer.")
+            # エラーメッセージの Engine ID を反映
+            logging.error(f"Invalid speaker map format in pair #{i+1}: '{pair}'. Engine ID '{engine_id_str}' is not a valid integer.")
             return None
 
     if not speaker_map:
@@ -258,6 +270,7 @@ def _validate_and_collect_segments(segments_with_speaker_id: SegmentList) -> Tup
     logging.info("Starting parameter check and collection of valid audio segments...")
 
     for i, (speaker_id, wav_bytes) in enumerate(segments_with_speaker_id):
+        # Mapped Speaker ID -> Mapped Engine Speaker ID に変更？文脈次第だがここでは Speaker ID のままにする
         segment_label = f"Segment {i+1} (Mapped Speaker ID {speaker_id})"
         if not wav_bytes:
             logging.warning(f"{segment_label}: Audio data is empty. Skipping.")
@@ -391,6 +404,7 @@ def combine_wav_segments(segments_with_speaker_id: SegmentList, output_filepath:
             last_speaker_id: Optional[SpeakerId] = None
 
             for i, (current_speaker_id, wav_bytes) in enumerate(valid_segments):
+                # Mapped Speaker ID -> Mapped Engine Speaker ID に変更？文脈次第だがここでは Speaker ID のままにする
                 segment_label = f"Valid Segment {i+1}/{len(valid_segments)} (Mapped Speaker ID {current_speaker_id})"
 
                 # 3. 無音の挿入 (2番目以降のセグメント)
@@ -430,7 +444,8 @@ def combine_wav_segments(segments_with_speaker_id: SegmentList, output_filepath:
 if __name__ == "__main__":
     # --- コマンドライン引数の設定 ---
     parser = argparse.ArgumentParser(
-        description="VOICEVOXを使ってCSVファイルからセリフを読み上げ、結合したWAVファイルを出力します。",
+        # 説明文の VOICEVOX をより一般的に
+        description="音声合成エンジンを使ってCSVファイルからセリフを読み上げ、結合したWAVファイルを出力します。",
         formatter_class=argparse.RawTextHelpFormatter # helpメッセージの改行を保持
     )
 
@@ -445,7 +460,8 @@ if __name__ == "__main__":
         metavar="SPEAKER_MAP",
         type=str,
         help=(
-            "CSV内の話者名とVOICEVOX話者IDのマッピングを指定します。\n"
+            # ヘルプメッセージの VOICEVOX話者ID -> エンジン話者ID に変更
+            "CSV内の話者名とエンジン話者IDのマッピングを指定します。\n"
             "形式: \"CSV話者名1:ID1 CSV話者名2:ID2 ...\"\n"
             "例: \"SPEAKER_00:8 SPEAKER_01:14\"\n"
             "CSVファイルに登場する全ての話者名を指定する必要があります。"
@@ -454,11 +470,14 @@ if __name__ == "__main__":
 
 
     # オプション引数
+    # --voicevox_url を --engine_url に変更
     parser.add_argument(
-        "--voicevox_url",
+        "--engine_url",
         type=str,
-        default=DEFAULT_VOICEVOX_URL,
-        help=f"VOICEVOX Engine API エンドポイントURL。(デフォルト: {DEFAULT_VOICEVOX_URL})"
+        # DEFAULT_VOICEVOX_URL -> DEFAULT_ENGINE_URL
+        default=DEFAULT_ENGINE_URL,
+        # ヘルプメッセージの VOICEVOX Engine API -> 音声合成エンジンAPI に変更
+        help=f"音声合成エンジンAPI エンドポイントURL。(デフォルト: {DEFAULT_ENGINE_URL})"
     )
     parser.add_argument(
         "--output_wav_path",
@@ -509,7 +528,8 @@ if __name__ == "__main__":
     logging.info(f"  CSV File Path: {input_csv_path}")
     logging.info(f"  Speaker Map Arg: {args.speaker_map_arg}")
     logging.info(f"    Parsed Map: {speaker_map}")
-    logging.info(f"  VOICEVOX URL: {args.voicevox_url}")
+    # VOICEVOX URL -> Engine URL
+    logging.info(f"  Engine URL: {args.engine_url}")
     logging.info(f"  Output WAV Path: {output_wav_path}")
     logging.info(f"  Timeout Query: {args.timeout_query}s")
     logging.info(f"  Timeout Synthesis: {args.timeout_synthesis}s")
@@ -551,13 +571,15 @@ if __name__ == "__main__":
             logging.info(f"  Data: csv_speaker='{csv_speaker_name}', text='{text[:40]}...'")
 
             # Speaker Map から ID を取得
-            voicevox_id: Optional[SpeakerId] = speaker_map.get(csv_speaker_name)
-            if voicevox_id is None:
+            # voicevox_id -> engine_speaker_id に変更
+            engine_speaker_id: Optional[SpeakerId] = speaker_map.get(csv_speaker_name)
+            if engine_speaker_id is None:
                  logging.warning(f"  [CSV Line {row_num_csv}] Speaker name '{csv_speaker_name}' not found in the provided speaker map. Skipping row.")
                  skip_count += 1
                  continue
 
-            logging.info(f"  Mapped VOICEVOX Speaker ID: {voicevox_id}")
+            # ログの VOICEVOX Speaker ID -> Mapped Engine Speaker ID
+            logging.info(f"  Mapped Engine Speaker ID: {engine_speaker_id}")
 
             if not text: # 空文字列の場合の警告
                  logging.warning(f"  [CSV Line {row_num_csv}] 'text' field is an empty string. Attempting synthesis, may result in empty audio.")
@@ -565,19 +587,23 @@ if __name__ == "__main__":
             # 音声合成実行
             audio_bytes: Optional[AudioBytes] = synthesize_voice_bytes(
                 text,
-                voicevox_id,
-                args.voicevox_url,
+                # voicevox_id -> engine_speaker_id
+                engine_speaker_id,
+                # args.voicevox_url -> args.engine_url
+                args.engine_url,
                 args.timeout_query,
                 args.timeout_synthesis
             )
 
             # 結果の処理
             if audio_bytes:
-                audio_segments_with_speaker_id.append((voicevox_id, audio_bytes))
+                # speaker_id は engine_speaker_id を使う
+                audio_segments_with_speaker_id.append((engine_speaker_id, audio_bytes))
                 success_count += 1
                 logging.info(f"  [CSV Line {row_num_csv}] Audio synthesis successful. Added to combination list.")
             else:
-                logging.error(f"  [CSV Line {row_num_csv}] Audio synthesis failed for speaker ID {voicevox_id}. Segment will not be included in output.")
+                # ログの speaker ID は engine_speaker_id を使う
+                logging.error(f"  [CSV Line {row_num_csv}] Audio synthesis failed for speaker ID {engine_speaker_id}. Segment will not be included in output.")
                 fail_count += 1
 
         # --- 合成サマリー ---
