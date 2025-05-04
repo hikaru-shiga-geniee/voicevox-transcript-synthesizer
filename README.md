@@ -1,31 +1,35 @@
-# VOICEVOX Transcript Synthesizer
+# VOICEVOX/AivisSpeech Transcript Synthesizer
 
 ## 概要
 
-このプロジェクトは、VOICEVOX Engine API を使用して、CSVファイルに記述された台本（発話者とテキスト）から音声を合成し、一つのWAVファイルに結合するPythonスクリプトです。
+このプロジェクトは、VOICEVOX Engine API または AivisSpeech Engine APIを使用して、CSVファイルに記述された台本（発話者とテキスト）から音声を合成し、一つのWAVファイルに結合するPythonスクリプトです。
 
 各発話セグメントの間には、話者が同じ場合と異なる場合で指定された長さの無音を挿入することができます。
 
 ## 機能
 
 * **CSVからの台本読み込み:** `speaker`（話者名）と `text`（セリフ）列を含むCSVファイルを読み込みます。
-* **VOICEVOX連携:** 指定されたVOICEVOX Engineに接続し、テキストと話者IDに基づいて音声を合成します。
-* **話者マッピング:** CSVファイル内の話者名を、VOICEVOXの話者IDにマッピングする機能を提供します。
+* **音声合成エンジン連携:** 指定されたVOICEVOX EngineまたはAivisSpeech Engineに接続し、テキストと**エンジン固有の**話者IDに基づいて音声を合成します。
+* **話者マッピング:** CSVファイル内の話者名を、**各エンジンの**話者IDにマッピングする機能を提供します。
 * **音声結合:** 合成された複数の音声セグメントを一つのWAVファイルに結合します。
 * **無音挿入:**
     * 同じ話者が連続する場合の無音時間を指定できます。
     * 話者が変わる場合の無音時間を指定できます。
-* **柔軟な設定:** VOICEVOX EngineのURL、APIタイムアウト、出力ファイルパス、無音時間などをコマンドライン引数で設定可能です。
+* **柔軟な設定:** **音声合成エンジン**のURL、APIタイムアウト、出力ファイルパス、無音時間などをコマンドライン引数で設定可能です。
 * **エラーハンドリング:** APIリクエストの失敗やファイル読み込みエラーなどを適切に処理し、ログに出力します。
 
 ## 前提条件
 
 * **Python:** 3.11 以上 (`pyproject.toml` に記載)
-* **uv:** 
+* **uv:**
     * インストールされていない場合は、[uv 公式ドキュメント](https://astral.sh/docs/uv#installation) を参照してインストールしてください。(例: `pip install uv` または `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-* **VOICEVOX Engine:** スクリプトがアクセス可能な場所でVOICEVOX Engineが起動している必要があります。デフォルトでは `http://localhost:50021` に接続します。
-    * [VOICEVOX 公式サイト](https://voicevox.hiroshiba.jp/)
-* **VOICEVOXの話者ID:** 使用したい話者のVOICEVOXにおける話者IDを事前に確認しておく必要があります。VOICEVOX Engineの `/speakers` エンドポイントなどで確認できます。
+* **音声合成エンジン:**
+    * スクリプトがアクセス可能な場所でVOICEVOX Engine または AivisSpeech Engineが起動している必要があります。
+    * **VOICEVOX Engine:** デフォルトでは `http://localhost:50021` に接続します。
+        * [VOICEVOX 公式サイト](https://voicevox.hiroshiba.jp/)
+    * **AivisSpeech Engine:** 使用する場合は `--engine_url` オプションでURLを指定してください。 AivisSpeech Engineはデフォルトでは `http://localhost:10101`がエンドポイントになっています。
+        * [AivisSpeech 公式サイト](https://aivis-project.com/)
+* **エンジンの話者ID:** 使用したい話者の、各エンジンにおける話者IDを事前に確認しておく必要があります。各エンジンの `/speakers` エンドポイントなどで確認できます。
 
 ## インストール (uv を使用)
 
@@ -70,15 +74,16 @@ uv run main.py <csv_filepath_input> "<speaker_map_arg>" [オプション]
 * **`csv_filepath_input` (必須):**
     入力するCSVファイルのパス。
 * **`speaker_map_arg` (必須):**
-    CSV内の話者名とVOICEVOX話者IDのマッピング。
+    CSV内の話者名と**エンジン**話者IDのマッピング。
     * 形式: `"CSV話者名1:ID1 CSV話者名2:ID2 ..."` (全体をダブルクォートで囲むことを推奨)
-    * 例: `"SPEAKER_00:3 SPEAKER_01:8"`
+    * 例: `"SPEAKER_00:3 SPEAKER_01:8"` (VOICEVOXの場合)
+    * 例: `"読み上げ:1001 合成音声:1002"` (AivisSpeechの場合)
     * CSVファイルに登場する全ての話者名をマッピングする必要があります。IDは整数である必要があります。
 
 ### オプション
 
-* **`--voicevox_url URL`:**
-    VOICEVOX Engine API エンドポイントURL。
+* **`--engine_url URL`:**
+    **音声合成エンジン** API エンドポイントURL。
     (デフォルト: `http://localhost:50021`)
 * **`--output_wav_path PATH`:**
     出力するWAVファイルのパス。指定しない場合、入力CSVファイルと同じディレクトリに `<入力CSV名>.wav` という名前で保存されます。
@@ -99,11 +104,14 @@ uv run main.py <csv_filepath_input> "<speaker_map_arg>" [オプション]
 ### 実行例
 
 ```bash
-# test.csv を読み込み、話者マッピングを指定して output.wav に出力
+# test.csv を読み込み、VOICEVOXの話者マッピングを指定して output.wav に出力 (デフォルトURLを使用)
 uv run main.py test.csv "SPEAKER_00:3 SPEAKER_01:8" --output_wav_path output.wav
 
+# AivisSpeech Engine を使用する場合 (例: ポート 10101 で動作)
+uv run main.py dialogue.csv "キャラA:1001 キャラB:1002" --engine_url http://localhost:10101
+
 # VOICEVOX Engineが別のURLで動作している場合
-uv run main.py dialogue.csv "キャラA:1 キャラB:14" --voicevox_url [http://192.168.1.100:50021](http://192.168.1.100:50021)
+uv run main.py dialogue.csv "キャラA:1 キャラB:14" --engine_url http://192.168.1.100:50021
 
 # 無音時間を調整する場合
 uv run main.py script.csv "ずんだもん:3 四国めたん:2" --silence_duration_same_speaker 0.1 --silence_duration_diff_speaker 0.5
@@ -132,5 +140,4 @@ uv run main.py script.csv "ずんだもん:3 四国めたん:2" --silence_durati
 ```
 
 **注意:** このサンプルCSVの `start` と `end` 列は、現在のスクリプト (`main.py`) では使用されません。
-
 
